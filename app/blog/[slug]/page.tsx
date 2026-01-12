@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { CalendarDays, User } from 'lucide-react';
@@ -54,18 +55,40 @@ interface BlogPostProps {
 
 export default async function BlogPost({ params }: BlogPostProps) {
     const { slug } = await params;
-    const { markdown, post } = await getPostBySlug(slug);
 
-    const { data } = await compile(markdown, {
-        rehypePlugins: [
-            withSlugs,
-            rehypeSanitize,
-            withToc,
-            withTocExport,
-            /** Optionally, provide a custom name for the export. */
-            // [withTocExport, { name: 'toc' }],
-        ],
-    });
+    // 게시물을 가져오는 중 에러 처리
+    let markdown: string;
+    let post: Awaited<ReturnType<typeof getPostBySlug>>['post'];
+
+    try {
+        const postData = await getPostBySlug(slug);
+        markdown = postData.markdown;
+        post = postData.post;
+    } catch (error) {
+        // 게시물을 찾을 수 없거나 에러가 발생한 경우 404 페이지 표시
+        console.error('게시물 로드 중 오류:', error);
+        notFound();
+    }
+
+    // MDX 컴파일 중 에러 처리
+    let data: { toc?: TocEntry[] } | undefined;
+    try {
+        const compiled = await compile(markdown, {
+            rehypePlugins: [
+                withSlugs,
+                rehypeSanitize,
+                withToc,
+                withTocExport,
+                /** Optionally, provide a custom name for the export. */
+                // [withTocExport, { name: 'toc' }],
+            ],
+        });
+        data = compiled.data as { toc?: TocEntry[] };
+    } catch (error) {
+        // MDX 컴파일 실패 시 목차 없이 계속 진행
+        console.error('MDX 컴파일 중 오류:', error);
+        data = undefined;
+    }
 
     return (
         <div className='container py-12'>

@@ -6,9 +6,21 @@ import type {
 } from '@notionhq/client/build/src/api-endpoints';
 import { NotionToMarkdown } from 'notion-to-md';
 
+// Notion 클라이언트 생성 (환경 변수는 런타임에 검증)
 export const notion = new Client({
     auth: process.env.NOTION_TOKEN,
 });
+
+// 환경 변수 검증 함수 (런타임에만 호출)
+function validateEnvVars() {
+    if (!process.env.NOTION_TOKEN) {
+        throw new Error('NOTION_TOKEN 환경 변수가 설정되지 않았습니다.');
+    }
+
+    if (!process.env.NOTION_DATABASE_ID) {
+        throw new Error('NOTION_DATABASE_ID 환경 변수가 설정되지 않았습니다.');
+    }
+}
 
 const n2m = new NotionToMarkdown({ notionClient: notion });
 
@@ -66,77 +78,111 @@ export const getPostBySlug = async (
     markdown: string;
     post: Post;
 }> => {
-    const response = await notion.databases.query({
-        database_id: process.env.NOTION_DATABASE_ID!,
-        filter: {
-            and: [
-                {
-                    property: 'Slug',
-                    rich_text: {
-                        equals: slug,
+    try {
+        // 환경 변수 검증
+        validateEnvVars();
+        
+        const response = await notion.databases.query({
+            database_id: process.env.NOTION_DATABASE_ID!,
+            filter: {
+                and: [
+                    {
+                        property: 'Slug',
+                        rich_text: {
+                            equals: slug,
+                        },
                     },
-                },
-                {
-                    property: 'Status',
-                    select: {
-                        equals: 'Published',
+                    {
+                        property: 'Status',
+                        select: {
+                            equals: 'Published',
+                        },
                     },
-                },
-            ],
-        },
-    });
+                ],
+            },
+        });
 
-    const mdBlocks = await n2m.pageToMarkdown(response.results[0].id);
-    const { parent } = n2m.toMarkdownString(mdBlocks);
+        // 결과가 없을 경우 에러 처리
+        if (!response.results || response.results.length === 0) {
+            throw new Error(`슬러그 "${slug}"에 해당하는 게시물을 찾을 수 없습니다.`);
+        }
 
-    return {
-        markdown: parent,
-        post: getPostMetadata(response.results[0] as PageObjectResponse),
-    };
+        const page = response.results[0] as PageObjectResponse;
+        
+        // 페이지가 유효한지 확인
+        if (!('properties' in page)) {
+            throw new Error('유효하지 않은 페이지 형식입니다.');
+        }
 
-    // return getPageMetadata(response);
+        const mdBlocks = await n2m.pageToMarkdown(page.id);
+        const { parent } = n2m.toMarkdownString(mdBlocks);
+
+        return {
+            markdown: parent,
+            post: getPostMetadata(page),
+        };
+    } catch (error) {
+        // Notion API 에러를 더 명확하게 처리
+        if (error instanceof Error) {
+            throw new Error(`게시물을 가져오는 중 오류가 발생했습니다: ${error.message}`);
+        }
+        throw error;
+    }
 };
 
 export const getPublishedPosts = async (tag?: string): Promise<Post[]> => {
-    const response = await notion.databases.query({
-        database_id: process.env.NOTION_DATABASE_ID!,
-        filter: {
-            property: 'Status',
-            select: {
-                equals: 'Published',
-            },
-            and: [
-                {
-                    property: 'Status',
-                    select: {
-                        equals: 'Published',
-                    },
+    try {
+        // 환경 변수 검증
+        validateEnvVars();
+        
+        const response = await notion.databases.query({
+            database_id: process.env.NOTION_DATABASE_ID!,
+            filter: {
+                property: 'Status',
+                select: {
+                    equals: 'Published',
                 },
-                ...(tag && tag !== '전체'
-                    ? [
-                          {
-                              property: 'Tags',
-                              multi_select: {
-                                  contains: tag,
+                and: [
+                    {
+                        property: 'Status',
+                        select: {
+                            equals: 'Published',
+                        },
+                    },
+                    ...(tag && tag !== '전체'
+                        ? [
+                              {
+                                  property: 'Tags',
+                                  multi_select: {
+                                      contains: tag,
+                                  },
                               },
-                          },
-                      ]
-                    : []),
-            ],
-        },
-        sorts: [
-            {
-                property: 'Date',
-                direction: 'descending',
+                          ]
+                        : []),
+                ],
             },
-        ],
-    });
+            sorts: [
+                {
+                    property: 'Date',
+                    direction: 'descending',
+                },
+            ],
+        });
 
-    console.log(response.results);
+        // 결과가 없을 경우 빈 배열 반환
+        if (!response.results || response.results.length === 0) {
+            return [];
+        }
 
-    return response.results
-        .filter((page): page is PageObjectResponse => 'properties' in page)
-        .map(getPostMetadata);
+        return response.results
+            .filter((page): page is PageObjectResponse => 'properties' in page)
+            .map(getPostMetadata);
+    } catch (error) {
+        // Notion API 에러를 더 명확하게 처리
+        console.error('게시물 목록을 가져오는 중 오류 발생:', error);
+        // 에러 발생 시 빈 배열 반환하여 앱이 크래시되지 않도록 함
+        return [];
+    }
 };
 
 export const getTags = async (): Promise<TagFilterItem[]> => {
