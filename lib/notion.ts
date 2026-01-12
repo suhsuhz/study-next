@@ -81,7 +81,7 @@ export const getPostBySlug = async (
     try {
         // 환경 변수 검증
         validateEnvVars();
-        
+
         const response = await notion.databases.query({
             database_id: process.env.NOTION_DATABASE_ID!,
             filter: {
@@ -104,11 +104,13 @@ export const getPostBySlug = async (
 
         // 결과가 없을 경우 에러 처리
         if (!response.results || response.results.length === 0) {
-            throw new Error(`슬러그 "${slug}"에 해당하는 게시물을 찾을 수 없습니다.`);
+            throw new Error(
+                `슬러그 "${slug}"에 해당하는 게시물을 찾을 수 없습니다.`
+            );
         }
 
         const page = response.results[0] as PageObjectResponse;
-        
+
         // 페이지가 유효한지 확인
         if (!('properties' in page)) {
             throw new Error('유효하지 않은 페이지 형식입니다.');
@@ -124,7 +126,9 @@ export const getPostBySlug = async (
     } catch (error) {
         // Notion API 에러를 더 명확하게 처리
         if (error instanceof Error) {
-            throw new Error(`게시물을 가져오는 중 오류가 발생했습니다: ${error.message}`);
+            throw new Error(
+                `게시물을 가져오는 중 오류가 발생했습니다: ${error.message}`
+            );
         }
         throw error;
     }
@@ -134,7 +138,7 @@ export const getPublishedPosts = async (tag?: string): Promise<Post[]> => {
     try {
         // 환경 변수 검증
         validateEnvVars();
-        
+
         const response = await notion.databases.query({
             database_id: process.env.NOTION_DATABASE_ID!,
             filter: {
