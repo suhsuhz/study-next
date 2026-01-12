@@ -3,7 +3,7 @@ export default function Header() {
     return (
         /* Header 영역 */
         <header className='sticky top-0 z-50 border-b bg-background'>
-            <div className='container mx-auto flex h-14 items-center px-4'>
+            <div className='container flex h-[var(--header-height)] items-center px-4'>
                 <Link href='/' className='text-xl font-semibold'>
                     <span className='font-bold'>짐코딩 블로그</span>
                 </Link>
