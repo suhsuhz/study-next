@@ -51,13 +51,28 @@ export default async function Home({ searchParams }: HomeProps) {
                     </div>
 
                     {/* 블로그 카드 그리드 */}
-                    <div className='grid gap-4'>
-                        {posts.map((post) => (
-                            <Link href={`/blog/${post.slug}`} key={post.id}>
-                                <PostCard post={post} />
-                            </Link>
-                        ))}
-                    </div>
+                    {posts.length === 0 ? (
+                        <div className='text-center py-12'>
+                            <p className='text-muted-foreground text-lg'>
+                                게시물이 없습니다.
+                            </p>
+                            <p className='text-muted-foreground mt-2 text-sm'>
+                                {process.env.NODE_ENV === 'production' && (
+                                    <span>
+                                        환경 변수 설정을 확인하세요. (NOTION_TOKEN, NOTION_DATABASE_ID)
+                                    </span>
+                                )}
+                            </p>
+                        </div>
+                    ) : (
+                        <div className='grid gap-4'>
+                            {posts.map((post) => (
+                                <Link href={`/blog/${post.slug}`} key={post.id}>
+                                    <PostCard post={post} />
+                                </Link>
+                            ))}
+                        </div>
+                    )}
                 </div>
                 {/* 우측 사이드바 */}
                 <aside className='flex flex-col gap-6'>
