@@ -14,7 +14,7 @@ export const notion = new Client({
 // 환경 변수 검증 함수 (런타임에만 호출)
 function validateEnvVars() {
     const missingVars: string[] = [];
-    
+
     if (!process.env.NOTION_TOKEN) {
         missingVars.push('NOTION_TOKEN');
     }
@@ -142,17 +142,22 @@ export const getPostBySlug = async (
     }
 };
 
-export const getPublishedPosts = async (tag?: string): Promise<Post[]> => {
+export const getPublishedPosts = async (
+    tag?: string,
+    sort?: string
+): Promise<Post[]> => {
     try {
         // 환경 변수 검증
         validateEnvVars();
 
         const databaseId = process.env.NOTION_DATABASE_ID;
-        
+
         // 환경 변수 디버깅 (프로덕션에서는 제거하거나 조건부로만 출력)
         if (!databaseId) {
             console.error('[ERROR] NOTION_DATABASE_ID가 설정되지 않았습니다.');
-            throw new Error('NOTION_DATABASE_ID 환경 변수가 설정되지 않았습니다.');
+            throw new Error(
+                'NOTION_DATABASE_ID 환경 변수가 설정되지 않았습니다.'
+            );
         }
 
         const response = await notion.databases.query({
@@ -184,7 +189,7 @@ export const getPublishedPosts = async (tag?: string): Promise<Post[]> => {
             sorts: [
                 {
                     property: 'Date',
-                    direction: 'descending',
+                    direction: sort === 'latest' ? 'descending' : 'ascending',
                 },
             ],
         });
@@ -195,15 +200,13 @@ export const getPublishedPosts = async (tag?: string): Promise<Post[]> => {
             return [];
         }
 
-        console.log(`[SUCCESS] ${response.results.length}개의 게시물을 가져왔습니다.`);
-        
         return response.results
             .filter((page): page is PageObjectResponse => 'properties' in page)
             .map(getPostMetadata);
     } catch (error) {
         // Notion API 에러를 더 명확하게 처리
         console.error('[ERROR] 게시물 목록을 가져오는 중 오류 발생:', error);
-        
+
         // 환경 변수 관련 에러인 경우 명확히 표시
         if (error instanceof Error) {
             if (error.message.includes('환경 변수')) {
@@ -213,7 +216,7 @@ export const getPublishedPosts = async (tag?: string): Promise<Post[]> => {
                 });
             }
         }
-        
+
         // 에러 발생 시 빈 배열 반환하여 앱이 크래시되지 않도록 함
         return [];
     }

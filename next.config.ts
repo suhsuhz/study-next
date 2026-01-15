@@ -2,10 +2,6 @@ import type { NextConfig } from 'next';
 import createMDX from '@next/mdx';
 import remarkGfm from 'remark-gfm';
 
-console.log('process.env.NODE_ENV::', process.env.NODE_ENV);
-console.log('process.env.ENV_NAME::', process.env.ENV_NAME);
-console.log('process.env.LOCAL_ENV_NAME::', process.env.LOCAL_ENV_NAME);
-
 const nextConfig: NextConfig = {
     /* config options here */
     // experimental: {
