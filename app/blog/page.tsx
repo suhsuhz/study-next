@@ -13,8 +13,8 @@ export default async function Blog({ searchParams }: BlogProps) {
     const selectedTag = tag || '전체';
     const selectedSort = sort || 'latest';
 
-    const [posts, tags] = await Promise.all([
-        getPublishedPosts(selectedTag, selectedSort),
+    const [{ posts }, tags] = await Promise.all([
+        getPublishedPosts({ tag: selectedTag, sort: selectedSort }),
         getTags(),
     ]);
 

@@ -142,10 +142,24 @@ export const getPostBySlug = async (
     }
 };
 
-export const getPublishedPosts = async (
-    tag?: string,
-    sort?: string
-): Promise<Post[]> => {
+export interface GetPublishedPostsParams {
+    tag?: string;
+    sort?: string;
+    pageSize?: number;
+    startCursor?: string;
+  }
+export interface GetPublishedPostsResponse {
+    posts: Post[];
+    hasMore: boolean;
+    nextCursor: string | null;
+  }
+
+export const getPublishedPosts = async ({
+    tag = '전체',
+    sort = 'latest',
+    pageSize = 2,
+    startCursor,
+  }: GetPublishedPostsParams = {}): Promise<GetPublishedPostsResponse> => {
     try {
         // 환경 변수 검증
         validateEnvVars();
@@ -159,6 +173,7 @@ export const getPublishedPosts = async (
                 'NOTION_DATABASE_ID 환경 변수가 설정되지 않았습니다.'
             );
         }
+
 
         const response = await notion.databases.query({
             database_id: databaseId,
@@ -192,17 +207,22 @@ export const getPublishedPosts = async (
                     direction: sort === 'latest' ? 'descending' : 'ascending',
                 },
             ],
+            page_size: pageSize,
+            start_cursor: startCursor,
         });
 
-        // 결과가 없을 경우 빈 배열 반환
-        if (!response.results || response.results.length === 0) {
-            console.warn('[WARN] Published 상태의 게시물을 찾을 수 없습니다.');
-            return [];
-        }
+       
 
-        return response.results
+        // 결과를 GetPublishedPostsResponse 형식으로 변환
+        const posts = response.results
             .filter((page): page is PageObjectResponse => 'properties' in page)
             .map(getPostMetadata);
+
+        return {
+            posts,
+            hasMore: response.has_more,
+            nextCursor: response.next_cursor,
+        };
     } catch (error) {
         // Notion API 에러를 더 명확하게 처리
         console.error('[ERROR] 게시물 목록을 가져오는 중 오류 발생:', error);
@@ -217,13 +237,17 @@ export const getPublishedPosts = async (
             }
         }
 
-        // 에러 발생 시 빈 배열 반환하여 앱이 크래시되지 않도록 함
-        return [];
+        // 에러 발생 시 빈 응답 반환하여 앱이 크래시되지 않도록 함
+        return {
+            posts: [],
+            hasMore: false,
+            nextCursor: null,
+        };
     }
 };
 
 export const getTags = async (): Promise<TagFilterItem[]> => {
-    const posts = await getPublishedPosts();
+    const { posts } = await getPublishedPosts({pageSize: 100});
 
     // 모든 태그를 추출하고 각 태그의 출현 횟수를 계산
     const tagCount = posts.reduce(
